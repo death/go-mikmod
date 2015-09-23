@@ -23,18 +23,9 @@ func Version() (major int, minor int, rev int) {
 	return
 }
 
-var (
-	finish chan struct{}
-	done   sync.WaitGroup
-)
-
 // Init initializes the MikMod library.  Make sure to call Uninit when
 // done.
 func Init() error {
-	if finish != nil {
-		Uninit()
-	}
-
 	C.MikMod_InitThreads()
 	C.MikMod_RegisterAllDrivers()
 	C.MikMod_RegisterAllLoaders()
@@ -45,38 +36,13 @@ func Init() error {
 		return mikmodError()
 	}
 
-	finish = make(chan struct{})
-	done.Add(1)
-	go updateLoop()
-
 	return nil
 }
 
 // Uninit uninitializes the MikMod library.
 func Uninit() {
-	if finish == nil {
-		return
-	}
-
-	close(finish)
-	done.Wait()
-	finish = nil
-
+	Stop()
 	C.MikMod_Exit()
-}
-
-// updateLoop calls MikMod's update routine every 10ms.  It is
-// launched by Init and terminated by Uninit.
-func updateLoop() {
-	for {
-		select {
-		case <-time.After(10 * time.Millisecond):
-			C.MikMod_Update()
-		case <-finish:
-			done.Done()
-			return
-		}
-	}
 }
 
 // Module represents a MikMod module.  Remember to Close it when done.
@@ -152,20 +118,56 @@ func (m *Module) Close() error {
 	return nil
 }
 
+var (
+	finish chan struct{}
+	done   sync.WaitGroup
+)
+
+// updateLoop calls MikMod's update routine every 10ms.  It terminates
+// when the finish channel is closed, calling Done on the done
+// waitgroup.
+func updateLoop() {
+	for {
+		select {
+		case <-time.After(10 * time.Millisecond):
+			C.MikMod_Update()
+		case <-finish:
+			done.Done()
+			return
+		}
+	}
+}
+
 // Play starts playing a module.
 func Play(m *Module) {
+	if finish != nil {
+		Stop()
+	}
+
 	C.Player_Start(m.module)
+
+	finish = make(chan struct{})
+	done.Add(1)
+	go updateLoop()
+}
+
+// Stop stops playing a module.
+func Stop() {
+	if finish == nil {
+		return
+	}
+
+	C.Player_Stop()
+
+	close(finish)
+	done.Wait()
+	finish = nil
 }
 
 // IsPlaying returns true if the player is active, and false
 // otherwise.
 func IsPlaying() bool {
 	return int(C.Player_Active()) != 0
-}
-
-// Stop stops playing a module.
-func Stop() {
-	C.Player_Stop()
 }
 
 // mikmodString converts a Go string to a MikMod string; make sure to
