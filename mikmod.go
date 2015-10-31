@@ -59,6 +59,8 @@ func LoadModuleFromFile(filename string) (*Module, error) {
 	if module == nil {
 		return nil, mikmodError()
 	}
+	module.loop = 0
+	module.fadeout = 1
 	return &Module{module}, nil
 }
 
@@ -69,6 +71,8 @@ func LoadModuleFromSlice(b []byte) (*Module, error) {
 	if module == nil {
 		return nil, mikmodError()
 	}
+	module.loop = 0
+	module.fadeout = 1
 	return &Module{module}, nil
 }
 
