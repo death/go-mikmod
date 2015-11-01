@@ -59,8 +59,6 @@ func LoadModuleFromFile(filename string) (*Module, error) {
 	if module == nil {
 		return nil, mikmodError()
 	}
-	module.loop = 0
-	module.fadeout = 1
 	return &Module{module}, nil
 }
 
@@ -71,8 +69,6 @@ func LoadModuleFromSlice(b []byte) (*Module, error) {
 	if module == nil {
 		return nil, mikmodError()
 	}
-	module.loop = 0
-	module.fadeout = 1
 	return &Module{module}, nil
 }
 
@@ -114,6 +110,21 @@ func (m *Module) Speed() int { return int(m.module.sngspd) }
 
 // Tempo returns the song tempo.
 func (m *Module) Tempo() int { return int(m.module.bpm) }
+
+// SetLoop controls whether the module's playback should loop.
+func (m *Module) SetLoop(value bool) { m.module.loop = mikmodBool(value) }
+
+// Loop returns true if the module's playback should loop, and false
+// otherwise.
+func (m *Module) Loop() bool { return goBool(m.module.loop) }
+
+// SetFadeout controls whether the module's playback should fade out
+// on the last pattern.
+func (m *Module) SetFadeout(value bool) { m.module.fadeout = mikmodBool(value) }
+
+// Fadeout returns true if the module's playback should fade out on
+// the last pattern, and false otherwise.
+func (m *Module) Fadeout() bool { return goBool(m.module.fadeout) }
 
 // Close frees the module, making it unusable.
 func (m *Module) Close() error {
@@ -184,4 +195,23 @@ func mikmodString(s string) *C.CHAR {
 // error.
 func mikmodError() error {
 	return errors.New(C.GoString(C.MikMod_strerror(C.MikMod_errno)))
+}
+
+// mikmodBool converts a Go boolean to a MikMod boolean, which is
+// represented as an int.
+func mikmodBool(b bool) C.BOOL {
+	if b {
+		return 1
+	} else {
+		return 0
+	}
+}
+
+// goBool converts a MikMod boolean to a Go boolean.
+func goBool(b C.BOOL) bool {
+	if b != 0 {
+		return true
+	} else {
+		return false
+	}
 }
